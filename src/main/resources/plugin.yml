@@ -1,0 +1,7 @@
+name: PSMPScoreboard
+main: de.popcornsmp.scoreboard.PopcornScoreboardPlugin
+version: 1.0.0
+api-version: '1.21'
+author: PopcornSMP
+website: https://popcornsmp.de
+description: Scoreboard plugin for PopcornSMP.de
