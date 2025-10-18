@@ -1,7 +1,5 @@
 package de.popcornsmp.scoreboard;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -19,13 +17,17 @@ import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scoreboard.Criteria;
 import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.ScoreboardManager;
 import org.bukkit.scoreboard.Team;
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+
+import org.bukkit.scheduler.BukkitTask;
 
 import de.popcornsmp.scoreboard.rank.Rank;
 import de.popcornsmp.scoreboard.rank.RankCommand;
@@ -84,7 +86,7 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
             Scoreboard main = manager.getMainScoreboard();
             for (Player player : Bukkit.getOnlinePlayers()) {
                 player.setScoreboard(main);
-                player.setPlayerListHeaderFooter(null, null);
+                player.sendPlayerListHeaderAndFooter(Component.empty(), Component.empty());
             }
         }
 
@@ -127,21 +129,23 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
 
         objective.getScore(ENTRY_BLANK_TOP).setScore(5);
 
-        String initialPlaytime = formatPlaytimeLine(0, 0);
+        long playTicks = player.getStatistic(Statistic.PLAY_ONE_MINUTE);
+        TimeValues playtime = calculatePlaytime(playTicks);
+        String initialPlaytime = formatPlaytimeLine(playtime.hours(), playtime.minutes());
         objective.getScore(initialPlaytime).setScore(4);
 
-        String initialDeaths = formatDeathsLine(0);
+        String initialDeaths = formatDeathsLine(player.getStatistic(Statistic.DEATHS));
         objective.getScore(initialDeaths).setScore(3);
 
         objective.getScore(ENTRY_BLANK_MIDDLE).setScore(2);
 
-        String initialPing = formatPingLine(0);
+        String initialPing = formatPingLine(player.getPing());
         objective.getScore(initialPing).setScore(1);
 
         objective.getScore(ENTRY_BLANK_BOTTOM).setScore(0);
 
         player.setScoreboard(scoreboard);
-        scoreboards.put(player.getUniqueId(), new PlayerScoreboard(Instant.now(), scoreboard, objective, initialPlaytime, initialDeaths, initialPing));
+        scoreboards.put(player.getUniqueId(), new PlayerScoreboard(scoreboard, objective, initialPlaytime, initialDeaths, initialPing));
     }
 
     private void removeScoreboard(Player player) {
@@ -166,11 +170,10 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
     }
 
     private void updateScoreboard(Player player, PlayerScoreboard data) {
-        long minutes = Duration.between(data.sessionStart(), Instant.now()).toMinutes();
-        long hours = minutes / 60;
-        long remainingMinutes = minutes % 60;
+        long playTicks = player.getStatistic(Statistic.PLAY_ONE_MINUTE);
+        TimeValues playtime = calculatePlaytime(playTicks);
 
-        String newPlaytime = formatPlaytimeLine(hours, remainingMinutes);
+        String newPlaytime = formatPlaytimeLine(playtime.hours(), playtime.minutes());
         if (!newPlaytime.equals(data.playtimeLine())) {
             data.scoreboard().resetScores(data.playtimeLine());
             data.objective().getScore(newPlaytime).setScore(4);
@@ -247,7 +250,8 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
     }
 
     private void updatePlayerListHeaderFooter(Player player) {
-        player.setPlayerListHeaderFooter("§6§lPopcornSMP.de", "");
+        Component header = LegacyComponentSerializer.legacySection().deserialize("§6§lPopcornSMP.de");
+        player.sendPlayerListHeaderAndFooter(header, Component.empty());
     }
 
     private void initializeRankTeams(Scoreboard scoreboard) {
@@ -292,25 +296,29 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
         team.addEntry(target.getName());
     }
 
+    private TimeValues calculatePlaytime(long playTicks) {
+        long totalMinutes = playTicks / (20 * 60);
+        long hours = totalMinutes / 60;
+        long minutes = totalMinutes % 60;
+        return new TimeValues(hours, minutes);
+    }
+
+    private record TimeValues(long hours, long minutes) {
+    }
+
     private static final class PlayerScoreboard {
-        private final Instant sessionStart;
         private final Scoreboard scoreboard;
         private final Objective objective;
         private String playtimeLine;
         private String deathsLine;
         private String pingLine;
 
-        private PlayerScoreboard(Instant sessionStart, Scoreboard scoreboard, Objective objective, String playtimeLine, String deathsLine, String pingLine) {
-            this.sessionStart = sessionStart;
+        private PlayerScoreboard(Scoreboard scoreboard, Objective objective, String playtimeLine, String deathsLine, String pingLine) {
             this.scoreboard = scoreboard;
             this.objective = objective;
             this.playtimeLine = playtimeLine;
             this.deathsLine = deathsLine;
             this.pingLine = pingLine;
-        }
-
-        private Instant sessionStart() {
-            return sessionStart;
         }
 
         private Scoreboard scoreboard() {
