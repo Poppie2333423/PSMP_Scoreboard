@@ -31,6 +31,8 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 import org.bukkit.scheduler.BukkitTask;
 
+import de.popcornsmp.scoreboard.data.PlayerDataManager;
+import de.popcornsmp.scoreboard.data.PlayerDataManager.PlayerData;
 import de.popcornsmp.scoreboard.rank.Rank;
 import de.popcornsmp.scoreboard.rank.RankCommand;
 import de.popcornsmp.scoreboard.rank.RankManager;
@@ -58,6 +60,7 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
     );
 
     private final Map<UUID, PlayerScoreboard> scoreboards = new HashMap<>();
+    private PlayerDataManager playerDataManager;
     private RankManager rankManager;
     private BukkitTask updateTask;
     private BukkitTask chatBroadcastTask;
@@ -65,6 +68,9 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
 
     @Override
     public void onEnable() {
+        playerDataManager = new PlayerDataManager(this);
+        playerDataManager.load();
+
         rankManager = new RankManager(this);
         rankManager.load();
 
@@ -91,6 +97,10 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
 
     @Override
     public void onDisable() {
+        if (playerDataManager != null) {
+            playerDataManager.save();
+        }
+
         if (rankManager != null) {
             rankManager.save();
         }
@@ -147,12 +157,16 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
 
         objective.getScore(ENTRY_BLANK_TOP).setScore(5);
 
-        long playTicks = player.getStatistic(Statistic.PLAY_ONE_MINUTE);
-        TimeValues playtime = calculatePlaytime(playTicks);
+        long currentMinutes = player.getStatistic(Statistic.PLAY_ONE_MINUTE) / (20 * 60);
+        int currentDeaths = player.getStatistic(Statistic.DEATHS);
+
+        PlayerData storedData = playerDataManager.updateAndGet(player.getUniqueId(), currentMinutes, currentDeaths);
+
+        TimeValues playtime = calculatePlaytime(storedData.getPlayMinutes());
         String initialPlaytime = formatPlaytimeLine(playtime.hours(), playtime.minutes());
         objective.getScore(initialPlaytime).setScore(4);
 
-        String initialDeaths = formatDeathsLine(player.getStatistic(Statistic.DEATHS));
+        String initialDeaths = formatDeathsLine(storedData.getDeaths());
         objective.getScore(initialDeaths).setScore(3);
 
         objective.getScore(ENTRY_BLANK_MIDDLE).setScore(2);
@@ -196,8 +210,12 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
     }
 
     private void updateScoreboard(Player player, PlayerScoreboard data) {
-        long playTicks = player.getStatistic(Statistic.PLAY_ONE_MINUTE);
-        TimeValues playtime = calculatePlaytime(playTicks);
+        UUID uuid = player.getUniqueId();
+        long currentMinutes = player.getStatistic(Statistic.PLAY_ONE_MINUTE) / (20 * 60);
+        int currentDeaths = player.getStatistic(Statistic.DEATHS);
+
+        PlayerData storedData = playerDataManager.updateAndGet(uuid, currentMinutes, currentDeaths);
+        TimeValues playtime = calculatePlaytime(storedData.getPlayMinutes());
 
         String newPlaytime = formatPlaytimeLine(playtime.hours(), playtime.minutes());
         if (!newPlaytime.equals(data.playtimeLine())) {
@@ -206,8 +224,7 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
             data.setPlaytimeLine(newPlaytime);
         }
 
-        int deaths = player.getStatistic(Statistic.DEATHS);
-        String newDeaths = formatDeathsLine(deaths);
+        String newDeaths = formatDeathsLine(storedData.getDeaths());
         if (!newDeaths.equals(data.deathsLine())) {
             data.scoreboard().resetScores(data.deathsLine());
             data.objective().getScore(newDeaths).setScore(3);
@@ -329,8 +346,7 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
         team.addEntry(target.getName());
     }
 
-    private TimeValues calculatePlaytime(long playTicks) {
-        long totalMinutes = playTicks / (20 * 60);
+    private TimeValues calculatePlaytime(long totalMinutes) {
         long hours = totalMinutes / 60;
         long minutes = totalMinutes % 60;
         return new TimeValues(hours, minutes);
