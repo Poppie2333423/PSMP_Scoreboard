@@ -68,6 +68,7 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
             setupScoreboard(player);
         }
         refreshPlayerTeams();
+        updateTabListAppearance();
         logInfo("Scoreboard Plugin aktiviert.");
     }
 
@@ -100,12 +101,14 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
         applyRankFormatting(player);
         setupScoreboard(player);
         refreshPlayerTeams();
+        updateTabListAppearance();
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         removeScoreboard(event.getPlayer());
         refreshPlayerTeams();
+        updateTabListAppearance();
     }
 
     @EventHandler
@@ -246,12 +249,19 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
     public void applyRankFormatting(Player player) {
         Rank rank = rankManager.getRank(player.getUniqueId());
         player.setOp(rank.shouldGrantOp());
-        updatePlayerListHeaderFooter(player);
+        player.playerListName(LegacyComponentSerializer.legacySection().deserialize(rank.getPrefix() + rank.getNameColor() + player.getName()));
     }
 
-    private void updatePlayerListHeaderFooter(Player player) {
-        Component header = LegacyComponentSerializer.legacySection().deserialize("§6§lPopcornSMP.de");
-        player.sendPlayerListHeaderAndFooter(header, Component.empty());
+    public void updateTabListAppearance() {
+        int online = Bukkit.getOnlinePlayers().size();
+        int max = Bukkit.getMaxPlayers();
+        String headerText = "§6§lPopcornSMP.de\n§8§m--------------------\n§7Online: §6" + online + "§7/§6" + max;
+        String footerText = "§8§m--------------------\n§7Viel Spaß auf §6PopcornSMP.de";
+        Component header = LegacyComponentSerializer.legacySection().deserialize(headerText);
+        Component footer = LegacyComponentSerializer.legacySection().deserialize(footerText);
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            player.sendPlayerListHeaderAndFooter(header, footer);
+        }
     }
 
     private void initializeRankTeams(Scoreboard scoreboard) {

@@ -60,6 +60,7 @@ public final class RankCommand implements CommandExecutor, TabCompleter {
         }
 
         plugin.refreshPlayerTeams();
+        plugin.updateTabListAppearance();
 
         sender.sendMessage(PopcornScoreboardPlugin.PREFIX + "§7Rang für §6" + targetName + " §7auf §6" + rank.getKey() + " §7gesetzt.");
         return true;
