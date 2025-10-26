@@ -45,10 +45,10 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
     private static final String ENTRY_BLANK_MIDDLE = ChatColor.DARK_BLUE.toString();
     private static final String ENTRY_BLANK_BOTTOM = ChatColor.DARK_GREEN.toString();
 
-    private static final long TAB_ROTATION_INTERVAL_TICKS = 20L * 10L;
     private static final long CHAT_BROADCAST_INTERVAL_TICKS = 20L * 60L * 10L;
     private static final String TAB_SEPARATOR = "§8§m--------------------";
     private static final String CHAT_SEPARATOR = "§8§m------------------------------";
+    private static final String TAB_FOOTER_MESSAGE = "§7discord.gg/§6popcornsmp";
     private static final List<String> ANNOUNCEMENT_MESSAGES = List.of(
             "§7Joine gerne unserem Discord Server §6discord.gg/popcornsmp",
             "§7Du möchtest dem Server spenden und Vorteile erhalten? Das geht auf unserem Discord Server §6discord.gg/popcornsmp",
@@ -60,9 +60,7 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
     private final Map<UUID, PlayerScoreboard> scoreboards = new HashMap<>();
     private RankManager rankManager;
     private BukkitTask updateTask;
-    private BukkitTask tabRotationTask;
     private BukkitTask chatBroadcastTask;
-    private int tabAnnouncementIndex;
     private int chatAnnouncementIndex;
 
     @Override
@@ -81,7 +79,6 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
 
         Bukkit.getPluginManager().registerEvents(this, this);
         startUpdateTask();
-        startTabRotationTask();
         startChatBroadcastTask();
         for (Player player : Bukkit.getOnlinePlayers()) {
             applyRankFormatting(player);
@@ -98,7 +95,6 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
             rankManager.save();
         }
         updateTask = cancelTask(updateTask);
-        tabRotationTask = cancelTask(tabRotationTask);
         chatBroadcastTask = cancelTask(chatBroadcastTask);
 
         ScoreboardManager manager = Bukkit.getScoreboardManager();
@@ -189,13 +185,6 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
                 }
             }
         }, 20L, 20L);
-    }
-
-    private void startTabRotationTask() {
-        tabRotationTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
-            advanceTabAnnouncement();
-            updateTabListAppearance();
-        }, TAB_ROTATION_INTERVAL_TICKS, TAB_ROTATION_INTERVAL_TICKS);
     }
 
     private void startChatBroadcastTask() {
@@ -290,7 +279,7 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
         int online = Bukkit.getOnlinePlayers().size();
         int max = Bukkit.getMaxPlayers();
         String headerText = "§6§lPopcornSMP.de\n§8§m--------------------\n§7Online: §6" + online + "§7/§6" + max;
-        String footerText = TAB_SEPARATOR + "\n" + getCurrentTabAnnouncement() + "\n" + TAB_SEPARATOR;
+        String footerText = TAB_SEPARATOR + "\n" + TAB_FOOTER_MESSAGE + "\n" + TAB_SEPARATOR;
         Component header = LegacyComponentSerializer.legacySection().deserialize(headerText);
         Component footer = LegacyComponentSerializer.legacySection().deserialize(footerText);
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -345,14 +334,6 @@ public final class PopcornScoreboardPlugin extends JavaPlugin implements Listene
         long hours = totalMinutes / 60;
         long minutes = totalMinutes % 60;
         return new TimeValues(hours, minutes);
-    }
-
-    private void advanceTabAnnouncement() {
-        tabAnnouncementIndex = (tabAnnouncementIndex + 1) % ANNOUNCEMENT_MESSAGES.size();
-    }
-
-    private String getCurrentTabAnnouncement() {
-        return ANNOUNCEMENT_MESSAGES.get(tabAnnouncementIndex);
     }
 
     private void broadcastAnnouncement(String message) {
